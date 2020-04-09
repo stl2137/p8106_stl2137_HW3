@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ISLR)
 library(caret)
+library(MASS)
 ```
 
 #Loading in data 
@@ -107,8 +108,12 @@ The AUC of the logistic regression model using a training data period from 1990 
 
 ## Part F
 (f) Repeat (e) using LDA and QDA.
+### Using LDA 
 ```{r}
-
+set.seed(1)
+lda_fit <- lda(direction ~ lag1 + lag2, 
+               data = year_train_dat)
+plot(lda.fit)
 ```
 
 
