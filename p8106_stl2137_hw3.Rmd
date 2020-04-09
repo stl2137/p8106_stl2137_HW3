@@ -1,0 +1,76 @@
+---
+title: "p8106_stl2137_HW3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ISLR)
+library(caret)
+```
+
+#Loading in data 
+
+```{r}
+data(Weekly)
+weekly_dat <- Weekly[-8] %>% 
+  janitor::clean_names()
+```
+
+## Part A
+(a) Produce some graphical summaries of the Weekly data.
+```{r}
+featurePlot(x = weekly_dat[, 2:7], 
+            y = weekly_dat$direction,
+            scales = list(x=list(relation="free"), 
+                          y=list(relation="free")),
+            plot = "density", pch = "|", 
+            auto.key = list(columns = 2))
+```
+
+## Part B
+
+```{r}
+glm_fit <- glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume, 
+               data = weekly_dat, 
+               family = binomial)
+
+summary(glm_fit)
+```
+
+After running `summary(glm_fit)`, it appears that when $\alpha = 0.05$, only lag2 is a statisically significant predictor. 
+
+## Part C
+
+(c) Briefly explain what the confusion matrix is telling you.
+```{r}
+### Split Data in Train and Test
+set.seed(1)
+row_train <- createDataPartition(y = weekly_dat$direction,
+                                p = 0.8,
+                                list = FALSE)
+
+### Building Confusion Matrix
+
+test_pred_prob <- predict(glm_fit, newdata = weekly_dat[-row_train,],
+                          type = "response")
+
+test_pred <- rep("Down", length(test_pred_prob))
+test_pred[test_pred_prob > 0.5] <- "Up"
+
+confusionMatrix(data = as.factor(test_pred),
+                reference = weekly_dat$direction[-row_train],
+                positive = "Up")
+
+```
+
+## Part D
+
+```{r}
+roc_glm <- roc(weekly_dat$direction[-row_train], test_pred_prob)
+plot(roc_glm, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc_glm), col = 2, add = TRUE)
+```
+
+The AUC is 0.550. 

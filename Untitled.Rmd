@@ -1,0 +1,42 @@
+---
+title: "p8106_stl2137_HW3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ISLR)
+```
+
+#Loading in data 
+
+```{r}
+data(Weekly)
+dat <- Weekly[-8] %>% 
+  janitor::clean_names()
+```
+
+## Part A
+(a) Produce some graphical summaries of the Weekly data.
+```{r}
+featurePlot(x = dat[, 2:7], 
+            y = dat$direction,
+            scales = list(x=list(relation="free"), 
+                          y=list(relation="free")),
+            plot = "density", pch = "|", 
+            auto.key = list(columns = 2))
+```
+
+## Part B
+
+(b) Use the full data set to perform a logistic regression with Direction as the response and the five Lag variables plus Volume as predictors. Do any of the predictors appear to be statistically significant? If so, which ones?
+```{r}
+glm_fit <- glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume, 
+               data = dat, 
+               family = binomial)
+
+summary(glm_fit)
+```
+
+After running `summary(glm_fit)`, it appears that when $\alpha = 0.05$, only lag2 is a statisically significant predictor. 
