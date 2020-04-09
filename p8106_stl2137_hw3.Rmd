@@ -9,6 +9,7 @@ library(tidyverse)
 library(ISLR)
 library(caret)
 library(MASS)
+library(pROC)
 ```
 
 #Loading in data 
@@ -113,7 +114,7 @@ The AUC of the logistic regression model using a training data period from 1990 
 set.seed(1)
 lda_fit <- lda(direction ~ lag1 + lag2, 
                data = year_train_dat)
-plot(lda.fit)
+plot(lda_fit)
 ```
 
 
