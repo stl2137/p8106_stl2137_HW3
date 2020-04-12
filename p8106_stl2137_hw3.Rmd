@@ -21,7 +21,7 @@ weekly_dat <- Weekly[-8] %>%
 ```
 
 ## Part A
-(a) Produce some graphical summaries of the Weekly data.
+
 ```{r}
 featurePlot(x = weekly_dat[, 2:7], 
             y = weekly_dat$direction,
@@ -45,7 +45,6 @@ After running `summary(glm_fit)`, it appears that when $\alpha = 0.05$, only lag
 
 ## Part C
 
-(c) Briefly explain what the confusion matrix is telling you.
 ```{r}
 ### Split Data in Train and Test
 set.seed(1)
@@ -67,6 +66,8 @@ confusionMatrix(data = as.factor(test_pred),
 
 ```
 
+The confusion matrix shows us how accurate our model is at predicting the correct binary outcome. In our case, when the actual outcome is "down", our model will correctly predict "down" for 13 of the cases and incorrectly predict "up" for 83 of the cases, and when the actual outcome is "up". our model will correctly predict "up" for 111 of the cases and incorrectly predict "down" for 10 of the cases. This then gives us the accuracy of `r (13+111)/217`. 
+
 ## Part D
 
 ```{r}
@@ -75,10 +76,9 @@ plot(roc_glm, legacy.axes = TRUE, print.auc = TRUE)
 plot(smooth(roc_glm), col = 2, add = TRUE)
 ```
 
-The AUC is 0.550. 
+The AUC is `r roc_glm$auc[1]`. 
 
 ## Part E
-(e) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag1 and Lag2 as the predictors. Plot the ROC curve using the held out data (that is, the data from 2009 and 2010) and report the AUC.
 
 ```{r}
 ### Creating Year Split Training and Test Data
@@ -96,25 +96,137 @@ year_glm_fit <- glm(direction ~ lag1 + lag2,
                     family = binomial)
 
 ### Plotting the ROC curve
-year_pred_prob <- predict(year_glm_fit, newdata = year_train_dat,
+year_pred_prob <- predict(year_glm_fit, newdata = year_test_dat,
                           type = "response")
 year_pred <- rep("Down", length(year_pred_prob))
 year_pred[year_pred_prob > 0.5] <- "Up"
 
-roc_year <- roc(year_train_dat$direction, year_pred_prob)
+roc_year <- roc(year_test_dat$direction, year_pred_prob)
 plot(roc_year, legacy.axes = TRUE, print.auc = TRUE)
 ```
 
-The AUC of the logistic regression model using a training data period from 1990 to 2008, with Lag1 and Lag2 as the predictors is 0.555. 
+The AUC of the logistic regression model using a training data period from 1990 to 2008, with Lag1 and Lag2 as the predictors is `r roc_year$auc[1]`. 
+
+```{r}
+# Using caret to compare the cross-valiation performance with other models
+control1 <- trainControl(method = "repeatedcv",
+                     repeats = 5,
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+set.seed(1)
+glm_model <- train(x = year_train_dat[2:3],
+                   y = year_train_dat$direction,
+                   method = "glm",
+                   metric = "ROC",
+                   trControl = control1)
+```
 
 ## Part F
-(f) Repeat (e) using LDA and QDA.
+
 ### Using LDA 
 ```{r}
 set.seed(1)
 lda_fit <- lda(direction ~ lag1 + lag2, 
                data = year_train_dat)
 plot(lda_fit)
+
+### Plotting the ROC curve for LDA 
+lda_pred <- predict(lda_fit, newdata = year_test_dat)
+
+roc_lda <- roc(year_test_dat$direction, lda_pred$posterior[,2],
+               levels = c("Down", "Up"))
+
+plot(roc_lda, legacy.axes = TRUE, print.auc = TRUE)
 ```
 
+The AUC using LDA is `r roc_lda$auc[1]`.
 
+```{r}
+# Using caret to compare the cross-valiation performance with other models
+
+set.seed(1)
+lda_model <- train(x = year_train_dat[2:3],
+                   y = year_train_dat$direction,
+                   method = "lda",
+                   metric = "ROC",
+                   trControl = control1)
+```
+
+### Using QDA
+```{r}
+# use qda() in MASS
+qda_fit <- qda(direction ~ lag1 + lag2, 
+               data = year_train_dat)
+
+qda_pred <- predict(qda_fit, newdata = year_test_dat)
+roc_qda <- roc(year_test_dat$direction, qda_pred$posterior[,2],
+               levels = c("Down", "Up"))
+
+plot(roc_qda, legacy.axes = TRUE, print.auc = TRUE)
+```
+
+```{r}
+# Using caret to compare the cross-valiation performance with other models
+set.seed(1)
+qda_model <- train(x = year_train_dat[2:3],
+                   y = year_train_dat$direction,
+                   method = "qda",
+                   metric = "ROC",
+                   trControl = control1)
+```
+
+The AUC using QDA is `r roc_qda$auc[1]`.
+
+## Part G 
+
+### KNN
+
+```{r}
+set.seed(1)
+knn_model <- train(x = year_train_dat[2:3],
+                   y = year_train_dat$direction,
+                   method = "knn",
+                   metric = "ROC",
+                   preProcess = c("center", "scale"),
+                   tuneGrid = data.frame(k = seq(1, 200, by = 5)),
+                   trControl = control1)
+
+
+
+ggplot(knn_model)
+```
+
+### Discussing Results: Comparing the models 
+```{r}
+resamp <- resamples(list(glm = glm_model,
+                         lda = lda_model,
+                         qda = qda_model,
+                         knn = knn_model))
+
+summary(resamp)
+```
+
+```{r}
+
+glm_pred_comp <- predict(glm_model, newdata = year_test_dat, type = "prob")[,2]
+lda_pred_comp <- predict(lda_model, newdata = year_test_dat, type = "prob")[,2]
+qda_pred_comp <- predict(qda_model, newdata = year_test_dat, type = "prob")[,2]
+knn_pred_comp <- predict(knn_model, newdata = year_test_dat, type = "prob")[,2]
+
+roc_glm_comp <- roc(year_test_dat$direction, glm_pred_comp)
+roc_lda_comp <- roc(year_test_dat$direction, lda_pred_comp)
+roc_qda_comp <- roc(year_test_dat$direction, qda_pred_comp)
+roc_knn_comp <- roc(year_test_dat$direction, knn_pred_comp)
+
+auc <- c(roc_glm_comp$auc[1], roc_lda_comp$auc[1],
+         roc_qda_comp$auc[1], roc_knn_comp$auc[1])
+
+plot(roc_glm_comp, legacy.axes = TRUE)
+plot(roc_lda_comp, col = 2, add = TRUE)
+plot(roc_qda_comp, col = 3, add = TRUE)
+plot(roc_knn_comp, col = 4, add = TRUE)
+modelNames <- c("glm", "lda", "qda", "knn")
+legend("bottomright", legend = paste0(modelNames, ": ", round(auc,3)),
+       col = 1:6, lwd = 2)
+```
+As we can see from the ROC curves and the AUC, the KNN model is the best, as it has the highest AUC of `r roc_knn_comp$auc[1]`.
